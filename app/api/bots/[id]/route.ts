@@ -38,7 +38,7 @@ function saveBotsData(bots: BotInstance[]): void {
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const rateLimitCheck = checkRateLimit(request);
@@ -53,7 +53,8 @@ export async function DELETE(
       );
     }
 
-    const botId = params.id;
+    const { id } = await params;
+    const botId = id;
     const bots = loadBotsData();
     const updatedBots = bots.filter(b => b.id !== botId);
 
@@ -77,7 +78,7 @@ export async function DELETE(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     if (!requireHttps(request)) {
@@ -87,7 +88,8 @@ export async function PATCH(
       );
     }
 
-    const botId = params.id;
+    const { id } = await params;
+    const botId = id;
     const body = await request.json();
     const { action, prefix } = body;
 
