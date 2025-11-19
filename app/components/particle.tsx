@@ -120,6 +120,7 @@ export const Particles: React.FC<ParticlesProps> = ({
 
     circles.current = [];
     drawParticles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawParticles, dpr]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,6 +164,7 @@ export const Particles: React.FC<ParticlesProps> = ({
       }
     });
     rafID.current = window.requestAnimationFrame(animate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vx, vy]);
 
   const initCanvas = useCallback(() => {

@@ -63,7 +63,9 @@ interface DotPatternProps extends React.SVGProps<SVGSVGElement> {
 export function DotPattern({
   width = 16,
   height = 16,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   x = 0,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   y = 0,
   cx = 1,
   cy = 1,
@@ -90,7 +92,6 @@ export function DotPattern({
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const newDots = Array.from(
       {
@@ -109,11 +110,13 @@ export function DotPattern({
         };
       }
     );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDots(newDots);
   }, [dimensions.width, dimensions.height, width, height, cx, cy]);
 
   return (
     <svg
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ref={containerRef as any}
       aria-hidden="true"
       className={cn(
