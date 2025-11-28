@@ -101,8 +101,7 @@ export const Particles: React.FC<ParticlesProps> = ({
       const circle = circleParams();
       drawCircle(circle);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quantity]);
+  }, [quantity, drawCircle]);
 
   const resizeCanvas = useCallback(() => {
     if (!canvasContainerRef.current || !canvasRef.current || !context.current)
@@ -120,7 +119,6 @@ export const Particles: React.FC<ParticlesProps> = ({
 
     circles.current = [];
     drawParticles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawParticles, dpr]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,8 +162,7 @@ export const Particles: React.FC<ParticlesProps> = ({
       }
     });
     rafID.current = window.requestAnimationFrame(animate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vx, vy]);
+  }, [vx, vy, drawCircle]);
 
   const initCanvas = useCallback(() => {
     resizeCanvas();

@@ -14,28 +14,29 @@ interface BotStatus {
 }
 
 export default function Home() {
+	const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
 	const [token, setToken] = React.useState("");
-	const [isStarting, setIsStarting] = React.useState(false);
-	const [botStatus, setBotStatus] = React.useState<BotStatus | null>(null);
-	const [loading, setLoading] = React.useState(true);
-	const [showStopConfirm, setShowStopConfirm] = React.useState(false);
+ 	const [isStarting, setIsStarting] = React.useState(false);
+ 	const [botStatus, setBotStatus] = React.useState<BotStatus | null>(null);
+ 	const [loading, setLoading] = React.useState(true);
+ 	const [showStopConfirm, setShowStopConfirm] = React.useState(false);
+ 	const [loggedIn, setLoggedIn] = React.useState(false);
 
-	React.useEffect(() => {
-		checkBotStatus();
-		const interval = setInterval(checkBotStatus, 3000);
-		return () => clearInterval(interval);
-	}, []);
 
-	const checkBotStatus = async () => {
+	const checkBotStatus = React.useCallback(async () => {
+		if (!API_URL) return;
 		try {
-			const response = await fetch('/api/bots');
-			const data = await response.json();
-			if (data.success && data.bots.length > 0) {
-				const firstBot = data.bots[0];
+			const res = await fetch(`${API_URL}/api/bots/status`, { credentials: 'include' });
+			if (!res.ok) {
+				setBotStatus(null);
+				return;
+			}
+			const data = await res.json();
+			if (data.success && data.data) {
 				setBotStatus({
-					running: firstBot.status === 'running',
-					token: firstBot.token,
-					prefix: firstBot.prefix,
+					running: data.data.running,
+					prefix: data.data.prefix,
 				});
 			} else {
 				setBotStatus(null);
@@ -45,31 +46,66 @@ export default function Home() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [API_URL]);
 
-	const handleStart = async () => {
+	const checkAuthAndStatus = React.useCallback(async () => {
+		if (!API_URL) {
+			setLoggedIn(false);
+			setLoading(false);
+			return;
+		}
+		let isAuth = false;
+		try {
+			const res = await fetch(`${API_URL}/auth/user`, { credentials: 'include' });
+			if (!res.ok) {
+				setLoggedIn(false);
+				setLoading(false);
+				return;
+			}
+			const data = await res.json();
+			isAuth = !!(data && data.success && data.data);
+			setLoggedIn(isAuth);
+		} catch (err) {
+			console.error('Auth check failed:', err);
+			setLoggedIn(false);
+		} finally {
+			if (isAuth) await checkBotStatus();
+			setLoading(false);
+		}
+	}, [API_URL, checkBotStatus]);
+
+	React.useEffect(() => {
+		checkAuthAndStatus();
+	}, [checkAuthAndStatus]);
+
+	const handleAddTokenAndStart = async () => {
 		if (!token.trim()) return;
-
 		setIsStarting(true);
 		try {
-			const response = await fetch('/api/bots', {
+			const addRes = await fetch(`${API_URL}/api/tokens/add`, {
 				method: 'POST',
+				credentials: 'include',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ token, prefix: '$', action: 'add' }),
+				body: JSON.stringify({ token, alias: 'default' })
 			});
+			const addData = await addRes.json();
+			if (!addRes.ok || !addData.success) {
+				console.error('Failed to add token:', addData.error);
+				return;
+			}
 
-			const data = await response.json();
-			if (data.success) {
-				const startResponse = await fetch(`/api/bots/${data.bot.id}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ action: 'start' }),
-				});
-
-				if (startResponse.ok) {
-					setToken("");
-					await checkBotStatus();
-				}
+			const startRes = await fetch(`${API_URL}/api/bots/start`, {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ alias: 'default' })
+			});
+			const startData = await startRes.json();
+			if (startRes.ok && startData.success) {
+				setToken("");
+				await checkBotStatus();
+			} else {
+				console.error('Failed to start bot:', startData.error);
 			}
 		} catch (err) {
 			console.error('Error starting bot:', err);
@@ -79,24 +115,20 @@ export default function Home() {
 	};
 
 	const handleStop = async () => {
-		if (!botStatus?.token) return;
-
 		setIsStarting(true);
 		try {
-			const response = await fetch('/api/bots');
-			const data = await response.json();
-			if (data.success && data.bots.length > 0) {
-				const firstBot = data.bots[0];
-				const stopResponse = await fetch(`/api/bots/${firstBot.id}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ action: 'stop' }),
-				});
-
-				if (stopResponse.ok) {
-					setShowStopConfirm(false);
-					await checkBotStatus();
-				}
+			const res = await fetch(`${API_URL}/api/bots/stop`, {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ alias: 'default' })
+			});
+			const data = await res.json();
+			if (res.ok && data.success) {
+				setShowStopConfirm(false);
+				await checkBotStatus();
+			} else {
+				console.error('Failed to stop bot:', data.error);
 			}
 		} catch (err) {
 			console.error('Error stopping bot:', err);
@@ -177,28 +209,39 @@ export default function Home() {
 									</div>
 								) : (
 									<div>
-										<AuroraText className="text-white mb-4" speed={0.8}>
-											#1 Selfbot Hosting
-										</AuroraText>
-										<input
-											type="password"
-											value={token}
-											onChange={(e) => setToken(e.target.value)}
-											placeholder="paste your token here"
-											className="w-full px-4 py-3 rounded-lg bg-neutral-800/50 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 border border-neutral-700 transition mb-4"
-										/>
+										{!loggedIn ? (
+											<div className="space-y-4">
+												<p className="text-sm text-neutral-400">You must log in with Discord to manage tokens and start bots.</p>
+												<a href={`https://story.honored.rip/auth/discord`}>
+													<Button className="w-full py-3 rounded-lg font-semibold text-lg bg-blue-600 hover:bg-blue-700 text-white">Sign in with Discord</Button>
+												</a>
+											</div>
+										) : (
+											<div>
+												<AuroraText className="text-white mb-4" speed={0.8}>
+													#1 Selfbot Hosting
+												</AuroraText>
+												<input
+													type="password"
+													value={token}
+													onChange={(e) => setToken(e.target.value)}
+													placeholder="paste your token here"
+													className="w-full px-4 py-3 rounded-lg bg-neutral-800/50 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 border border-neutral-700 transition mb-4"
+												/>
 
-										<Button
-											onClick={handleStart}
-											disabled={isStarting || !token.trim()}
-											className={`w-full py-3 rounded-lg font-semibold text-lg transition ${
-												isStarting
-													? "bg-purple-500/50 text-white"
-													: "bg-gradient-to-r from-gray-700 to-purple-500 text-white hover:from-gray-600 hover:via-purple-600 hover:to-purple-600 focus:ring-4 focus:ring-purple-500/30"
-											}`}
-										>
-											{isStarting ? "Starting..." : "Start Selfbot"}
-										</Button>
+												<Button
+													onClick={handleAddTokenAndStart}
+													disabled={isStarting || !token.trim()}
+													className={`w-full py-3 rounded-lg font-semibold text-lg transition ${
+														isStarting
+															? "bg-purple-500/50 text-white"
+															: "bg-gradient-to-r from-gray-700 to-purple-500 text-white hover:from-gray-600 hover:via-purple-600 hover:to-purple-600 focus:ring-4 focus:ring-purple-500/30"
+													}`}
+												>
+													{isStarting ? "Starting..." : "Add Token & Start"}
+												</Button>
+											</div>
+										)}
 									</div>
 								)}
 							</div>
