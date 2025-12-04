@@ -6,35 +6,32 @@ import Link from 'next/link';
 export default function SuccessPage() {
   const [loading, setLoading] = React.useState(true);
   const [username, setUsername] = React.useState<string | null>(null);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+  const API_URL = "https://story.honored.rip";
 
   React.useEffect(() => {
     async function fetchUser() {
       if (!API_URL) {
+        console.error('[success page] API_URL not configured');
         setUsername(null);
         setLoading(false);
         return;
       }
-      // If we were redirected here from the OAuth callback, the URL may include
-      // `?session=<id>`. Some browsers block Set-Cookie on cross-site redirects,
-      // so we explicitly POST the session id back to the API to have it set the
-      // httpOnly cookie via a same-site request with credentials.
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const session = urlParams.get('session');
 
         if (session) {
           try {
-            await fetch(`${API_URL}/auth/confirm`, {
+            const confirmRes = await fetch(`${API_URL}/auth/confirm`, {
               method: 'POST',
               credentials: 'include',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ session })
             });
-            // remove session from URL for cleanliness
+            const confirmData = await confirmRes.json();
             window.history.replaceState({}, document.title, window.location.pathname);
           } catch (err) {
-            console.error('Failed to confirm session via API:', err);
+            console.error('[success page] failed to confirm session via API:', err);
           }
         }
 
@@ -46,9 +43,11 @@ export default function SuccessPage() {
         const data = await res.json();
         if (data.success && data.data) {
           setUsername(data.data.username || null);
+        } else {
+          console.error('[success page] response not successful or missing data:', data);
         }
       } catch (err) {
-        console.error('Failed to fetch user after auth:', err);
+        console.error('[success page] failed to fetch user after auth:', err);
       } finally {
         setLoading(false);
       }

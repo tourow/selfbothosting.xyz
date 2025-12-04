@@ -12,10 +12,8 @@ export default function DiscordCallbackPage() {
     const state = params.get('state');
 
     if (code) {
-      // Build target URL to forward code to backend
       const target = `${API_URL}/auth/discord/callback?code=${encodeURIComponent(code)}` + (state ? `&state=${encodeURIComponent(state)}` : '');
       setManualHref(target);
-      // Auto-redirect to backend callback to finish OAuth
       window.location.href = target;
     }
   }, [API_URL]);
